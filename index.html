@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Енергія майбутнього — 6 пазлів</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:linear-gradient(135deg,#e8fff1,#e8f7ff);color:#173b35}
+header{padding:22px 18px;text-align:center;background:#fff;box-shadow:0 3px 18px #0001}
+h1{margin:0 0 6px;font-size:clamp(25px,4vw,42px)}header p{margin:0;color:#557}
+#games{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;padding:16px}
+button{border:0;border-radius:999px;padding:11px 17px;font-weight:700;cursor:pointer;background:#fff;box-shadow:0 2px 10px #0002;color:#17463c}
+button.active{background:#1ea672;color:#fff}
+main{max-width:1100px;margin:auto;padding:0 16px 30px}
+.panel{background:#fff;border-radius:24px;padding:18px;box-shadow:0 8px 30px #0001}
+.top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+#title{font-size:24px;font-weight:800}.info{color:#587;font-size:14px}
+#board{position:relative;margin:16px auto;width:min(900px,96vw);aspect-ratio:1.35;border-radius:18px;background:#edf4f1;box-shadow:inset 0 0 0 3px #d3e5de;overflow:hidden}
+#pieces{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:15px;padding:10px;background:#f4faf7;border-radius:18px}
+.piece{position:relative;aspect-ratio:1.35;cursor:grab;border-radius:10px;overflow:hidden;background:#fff;box-shadow:0 3px 9px #0002;touch-action:none}
+.piece:active{cursor:grabbing}.piece canvas{width:100%;height:100%;display:block}
+.slot{position:absolute;border:2px dashed #a7c9bd;border-radius:10px;opacity:.75}
+#message{text-align:center;min-height:28px;font-weight:800;color:#16885d;margin-top:10px}
+#restart{background:#ffb21c;color:#432b00}
+@media(max-width:700px){#pieces{grid-template-columns:repeat(3,1fr)}}
+</style>
+</head>
+<body>
+<header>
+<h1>⚡ Енергія майбутнього — пазли</h1>
+<p>Обери джерело енергії та склади картинку з 12 частин.</p>
+</header>
+<div id="games"></div>
+<main><section class="panel">
+<div class="top"><div id="title"></div><button id="restart">Перемішати</button></div>
+<div class="info">Перетягуй частинки на відповідні місця. На телефоні — торкайся частинки й тягни її пальцем.</div>
+<div id="board"></div><div id="message"></div><div id="pieces"></div>
+</section></main>
+<script>
+const DATA = [
+ {name:"solar",title:"☀️ Сонячна енергія"}, {name:"wind",title:"🌬️ Вітрова енергія"},
+ {name:"hydro",title:"💧 Гідроенергія"}, {name:"bio",title:"🌱 Біоенергія"},
+ {name:"geothermal",title:"♨️ Геотермальна енергія"}, {name:"nuclear",title:"⚛️ Атомна енергія"}
+];
+const COLS=4, ROWS=3, N=COLS*ROWS;
+let current=0, pieces=[], placed=0;
+const board=document.querySelector("#board"), tray=document.querySelector("#pieces");
+const title=document.querySelector("#title"), msg=document.querySelector("#message");
+const games=document.querySelector("#games");
+
+DATA.forEach((d,i)=>{let b=document.createElement("button");b.textContent=d.title;b.onclick=()=>start(i);b.id="g"+i;games.appendChild(b)});
+
+function start(i){
+ current=i; document.querySelectorAll("#games button").forEach((b,k)=>b.classList.toggle("active",k===i));
+ title.textContent=DATA[i].title; msg.textContent=""; placed=0; board.innerHTML=""; tray.innerHTML="";
+ const img=new Image(); img.onload=()=>build(img); img.src=DATA[i].name+".png";
+}
+function build(img){
+ const bw=board.clientWidth, bh=board.clientHeight;
+ // target slots
+ for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+   let s=document.createElement("div"); s.className="slot";
+   s.style.left=(c/COLS*100)+"%"; s.style.top=(r/ROWS*100)+"%";
+   s.style.width=(100/COLS)+"%"; s.style.height=(100/ROWS)+"%"; board.appendChild(s);
+ }
+ let ids=[...Array(N).keys()].sort(()=>Math.random()-.5);
+ ids.forEach(id=>{
+   const r=Math.floor(id/COLS), c=id%COLS;
+   let el=document.createElement("div"); el.className="piece"; el.dataset.id=id;
+   let can=document.createElement("canvas"); can.width=COLS*100; can.height=ROWS*100;
+   let ctx=can.getContext("2d");
+   ctx.drawImage(img,c*img.width/COLS,r*img.height/ROWS,img.width/COLS,img.height/ROWS,0,0,can.width,can.height);
+   el.appendChild(can); tray.appendChild(el);
+   makeDrag(el,id);
+ });
+}
+function makeDrag(el,id){
+ let startX,startY,originParent,ghost;
+ const down=e=>{
+   e.preventDefault(); const p=e.touches?e.touches[0]:e;
+   startX=p.clientX; startY=p.clientY; originParent=el.parentElement;
+   el.style.zIndex=99;
+   ghost=el.cloneNode(true); ghost.style.visibility="hidden";
+   originParent.appendChild(ghost);
+   document.addEventListener("mousemove",move); document.addEventListener("mouseup",up);
+   document.addEventListener("touchmove",move,{passive:false}); document.addEventListener("touchend",up);
+ };
+ const move=e=>{
+   e.preventDefault(); const p=e.touches?e.touches[0]:e;
+   const dx=p.clientX-startX, dy=p.clientY-startY;
+   el.style.transform=`translate(${dx}px,${dy}px) scale(1.03)`;
+ };
+ const up=e=>{
+   document.removeEventListener("mousemove",move); document.removeEventListener("mouseup",up);
+   document.removeEventListener("touchmove",move); document.removeEventListener("touchend",up);
+   const rect=el.getBoundingClientRect(), br=board.getBoundingClientRect();
+   const cx=rect.left+rect.width/2, cy=rect.top+rect.height/2;
+   const c=Math.floor((cx-br.left)/(br.width/COLS)), r=Math.floor((cy-br.top)/(br.height/ROWS));
+   if(c>=0&&c<COLS&&r>=0&&r<ROWS && r*COLS+c===id){
+      el.style.transform=""; el.style.position="absolute"; el.style.left=(id%COLS/COLS*100)+"%"; el.style.top=(Math.floor(id/COLS)/ROWS*100)+"%";
+      el.style.width=(100/COLS)+"%"; el.style.height=(100/ROWS)+"%"; el.style.zIndex=10;
+      board.appendChild(el); placed++; el.onmousedown=null; el.ontouchstart=null;
+      if(placed===N){msg.textContent="🎉 Чудово! Пазл складено!"; launchConfetti();}
+   } else {el.style.transform=""; if(ghost)ghost.remove();}
+   el.style.zIndex="";
+ };
+ el.addEventListener("mousedown",down); el.addEventListener("touchstart",down,{passive:false});
+}
+function launchConfetti(){
+ for(let i=0;i<35;i++){let x=document.createElement("div");x.textContent=["🌿","⚡","☀️","💧","🌬️"][i%5];
+ x.style.position="fixed";x.style.left=Math.random()*100+"vw";x.style.top="-30px";x.style.fontSize="24px";x.style.zIndex=9999;
+ document.body.appendChild(x); x.animate([{transform:"translateY(0) rotate(0)"},{transform:`translateY(110vh) rotate(${Math.random()*700}deg)`}],{duration:1400+Math.random()*1000}).onfinish=()=>x.remove();}
+}
+document.querySelector("#restart").onclick=()=>start(current);
+window.addEventListener("resize",()=>{if(!document.querySelector(".piece"))return});
+start(0);
+</script>
+</body></html>
